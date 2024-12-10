@@ -1,58 +1,57 @@
+// Gameboard Module
 const Gameboard = (() => {
   let board = ["", "", "", "", "", "", "", "", ""];
 
   const getBoard = () => board;
 
-  const setMarker = (index, marker) => {
-    if (board[index] === "") {
-      board[index] = marker;
-    }
+  const setMark = (index, marker) => {
+    if (board[index] === "") board[index] = marker;
   };
 
-  return { getBoard, setMarker };
+  const resetBoard = () => {
+    board = ["", "", "", "", "", "", "", "", ""];
+  };
+
+  return { getBoard, setMark, resetBoard };
 })();
 
-// Player(name, marker) is the factory function.
-// getName() returns the player's name.
-// getMarker() returns the player's marker ("X" or "O").
-
+// Player Factory
 const Player = (name, marker) => {
-  const getName = () => name;
-  const getMarker = () => marker;
-  return { getName, getMarker };
+  return { name, marker };
 };
 
+// Game Logic Module
 const Game = (() => {
-  let player1, player2, currentPlayer;
+  let players = [];
+  let currentPlayerIndex = 0;
   let gameOver = false;
 
-  const startGame = (name1, name2) => {
-    player1 = Player(name1, "X");
-    player2 = Player(name2, "O");
-    currentPlayer = player1;
+  const start = () => {
+    players = [Player("Player X", "X"), Player("Player O", "O")];
+    currentPlayerIndex = 0;
     gameOver = false;
-    console.log("Game started!");
+    Gameboard.resetBoard();
+    DisplayController.renderBoard();
+    DisplayController.setMessage(`${players[currentPlayerIndex].name}'s turn`);
   };
 
   const playTurn = (index) => {
     if (gameOver || Gameboard.getBoard()[index] !== "") return;
 
-    Gameboard.setMarker(index, currentPlayer.getMarker());
-
+    Gameboard.setMark(index, players[currentPlayerIndex].marker);
     if (checkWin()) {
-      console.log(`${currentPlayer.getName()} wins!`);
       gameOver = true;
+      DisplayController.setMessage(`${players[currentPlayerIndex].name} wins!`);
     } else if (checkTie()) {
-      console.log("It's a tie!");
       gameOver = true;
+      DisplayController.setMessage("It's a tie!");
     } else {
-      switchPlayer();
+      currentPlayerIndex = 1 - currentPlayerIndex; // Switch player
+      DisplayController.setMessage(
+        `${players[currentPlayerIndex].name}'s turn`
+      );
     }
-  };
-
-  const switchPlayer = () => {
-    currentPlayer = currentPlayer === player1 ? player2 : player1;
-    console.log(`It's ${currentPlayer.getName()}'s turn.`);
+    DisplayController.renderBoard();
   };
 
   const checkWin = () => {
@@ -69,12 +68,66 @@ const Game = (() => {
 
     return winPatterns.some((pattern) =>
       pattern.every(
-        (index) => Gameboard.getBoard()[index] === currentPlayer.getMarker()
+        (index) =>
+          Gameboard.getBoard()[index] === players[currentPlayerIndex].marker
       )
     );
   };
 
-  const checkTie = () => Gameboard.getBoard().every((cell) => cell !== "");
+  const checkTie = () => {
+    return Gameboard.getBoard().every((cell) => cell !== "");
+  };
 
-  return { startGame, playTurn };
+  const resetGame = () => {
+    start(); // Reset game state and UI
+  };
+
+  return { start, playTurn, resetGame, gameOver };
 })();
+
+// Display Controller Module
+const DisplayController = (() => {
+  const gameboardDiv = document.getElementById("gameboard");
+  const messageDiv = document.getElementById("message");
+  const resetBtn = document.getElementById("resetBtn");
+
+  const renderBoard = () => {
+    gameboardDiv.innerHTML = ""; // Clear the board
+
+    Gameboard.getBoard().forEach((cell, index) => {
+      const cellDiv = document.createElement("div");
+      cellDiv.classList.add("cell");
+      cellDiv.dataset.index = index;
+      cellDiv.textContent = cell;
+      gameboardDiv.appendChild(cellDiv);
+    });
+  };
+
+  const handleCellClick = (e) => {
+    const cellIndex = e.target.dataset.index;
+    if (!Game.gameOver && !e.target.classList.contains("taken")) {
+      Game.playTurn(cellIndex);
+    }
+  };
+
+  const enableCellClick = () => {
+    gameboardDiv.addEventListener("click", handleCellClick);
+  };
+
+  const setMessage = (message) => {
+    messageDiv.textContent = message;
+  };
+
+  // Reset button click event
+  resetBtn.addEventListener("click", () => {
+    Game.resetGame(); // Reset the game
+  });
+
+  return { renderBoard, enableCellClick, setMessage };
+})();
+
+// Start the Game After Page Loads
+window.addEventListener("DOMContentLoaded", () => {
+  Game.start();
+  DisplayController.enableCellClick();
+});
